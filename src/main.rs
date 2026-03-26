@@ -121,6 +121,8 @@ enum SetupCmd {
     InstallSshfs,
     /// sshpass 설치
     InstallSshpass,
+    /// macFUSE 커널 확장 로드
+    LoadMacfuse,
 }
 
 // === PROXMOX ===
@@ -191,6 +193,7 @@ fn main() {
             SetupCmd::Bootstrap => setup::bootstrap(),
             SetupCmd::InstallSshfs => setup::install_sshfs(),
             SetupCmd::InstallSshpass => setup::install_sshpass(),
+            SetupCmd::LoadMacfuse => setup::load_macfuse(),
         },
 
         Commands::Proxmox { cmd } => match cmd {
