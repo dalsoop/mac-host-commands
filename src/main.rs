@@ -7,6 +7,7 @@ mod obsidian;
 mod proxmox;
 mod setup;
 mod ssh;
+mod veil;
 mod workspace;
 
 use clap::{Parser, Subcommand};
@@ -47,6 +48,11 @@ enum Commands {
     Proxmox {
         #[command(subcommand)]
         cmd: ProxmoxCmd,
+    },
+    /// VeilKey (CLI, LocalVault, VaultCenter)
+    Veil {
+        #[command(subcommand)]
+        cmd: VeilCmd,
     },
     /// 작업 환경 (tmux, 셸, CLI 도구)
     Workspace {
@@ -126,6 +132,29 @@ enum SshCmd {
         #[arg(default_value = "")]
         host: String,
     },
+}
+
+// === VEIL ===
+#[derive(Subcommand)]
+enum VeilCmd {
+    /// VeilKey 상태 확인
+    Status,
+    /// 전체 부트스트랩 (CLI + LocalVault + VaultCenter + 프로필)
+    Bootstrap,
+    /// veilkey-cli 설치
+    InstallCli,
+    /// LocalVault 설치 + LaunchAgent 등록
+    InstallLocalvault,
+    /// VaultCenter SSH 터널 연결
+    Connect,
+    /// VaultCenter SSH 터널 해제
+    Disconnect,
+    /// 셸 프로필 설정 (~/.veilkey.sh)
+    SetupProfile,
+    /// LocalVault 시작
+    Start,
+    /// LocalVault 중지
+    Stop,
 }
 
 // === WORKSPACE ===
@@ -258,6 +287,18 @@ fn main() {
             SshCmd::Status => ssh::status(),
             SshCmd::CopyKey { host } => ssh::copy_key(&host),
             SshCmd::Test { host } => ssh::test(&host),
+        },
+
+        Commands::Veil { cmd } => match cmd {
+            VeilCmd::Status => veil::status(),
+            VeilCmd::Bootstrap => veil::bootstrap(),
+            VeilCmd::InstallCli => veil::install_cli(),
+            VeilCmd::InstallLocalvault => veil::install_localvault(),
+            VeilCmd::Connect => veil::connect_vaultcenter(),
+            VeilCmd::Disconnect => veil::disconnect_vaultcenter(),
+            VeilCmd::SetupProfile => veil::setup_profile(),
+            VeilCmd::Start => veil::localvault_start(),
+            VeilCmd::Stop => veil::localvault_stop(),
         },
 
         Commands::Workspace { cmd } => match cmd {
