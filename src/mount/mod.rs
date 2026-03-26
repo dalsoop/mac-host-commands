@@ -106,7 +106,11 @@ pub fn unmount(name: &str) {
     }
 
     println!("[unmount] {mount_point} 해제 중...");
-    let (ok, _, _) = common::run_cmd("umount", &[&mount_point]);
+    let (ok, _, _) = if mount_point.starts_with("/Volumes") {
+        common::run_cmd("sudo", &["umount", &mount_point])
+    } else {
+        common::run_cmd("umount", &[&mount_point])
+    };
     if ok {
         println!("[unmount] '{name}' 해제 완료");
 
