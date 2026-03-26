@@ -61,7 +61,7 @@ pub fn mount(name: &str) {
 
     match target.method.as_str() {
         "sshfs" => mount_sshfs(host, user, &target.remote_path, &mount_point, name),
-        "smb" => mount_smb(host, user, &target.remote_path, &mount_point, name),
+        "smb" => mount_smb_via_tunnel(host, user, &target.remote_path, &mount_point, name),
         _ => {
             eprintln!("[mount] 지원하지 않는 method: {}", target.method);
             std::process::exit(1);
@@ -98,10 +98,21 @@ pub fn unmount(name: &str) {
         target.mount_point.clone()
     };
 
+    // 마운트 안 되어 있으면 스킵
+    let (_, mounts) = common::run_cmd_quiet("mount", &[]);
+    if !mounts.contains(&mount_point) {
+        println!("[unmount] '{name}' 마운트되어 있지 않습니다.");
+        return;
+    }
+
     println!("[unmount] {mount_point} 해제 중...");
     let (ok, _, _) = common::run_cmd("umount", &[&mount_point]);
     if ok {
         println!("[unmount] '{name}' 해제 완료");
+
+        // SMB 터널도 정리
+        let host = if target.host.is_empty() { &cfg.proxmox.host } else { &target.host };
+        kill_smb_tunnel(host);
     }
 }
 
@@ -117,20 +128,124 @@ fn mount_sshfs(host: &str, user: &str, remote_path: &str, mount_point: &str, nam
     let (has_sshfs, _) = common::run_cmd_quiet("which", &["sshfs"]);
     if !has_sshfs {
         eprintln!("[mount] sshfs가 설치되어 있지 않습니다.");
-        eprintln!("  설치: brew install macfuse && brew install gromgit/fuse/sshfs-mac");
+        eprintln!("  설치: mac-host-commands setup install-sshfs");
         std::process::exit(1);
     }
 
-    // 마운트 포인트 생성
-    let _ = Command::new("mkdir").args(["-p", mount_point]).output();
+    ensure_mount_point(mount_point);
 
     println!("[mount] sshfs {user}@{host}:{remote_path} -> {mount_point}");
-    let (ok, _, _) = common::run_cmd("sshfs", &[
-        &format!("{user}@{host}:{remote_path}"),
+
+    let sshfs_args = if mount_point.starts_with("/Volumes") {
+        // /Volumes 하위는 sudo 필요
+        vec![
+            "sshfs".to_string(),
+            format!("{user}@{host}:{remote_path}"),
+            mount_point.to_string(),
+            "-o".to_string(), "reconnect".to_string(),
+            "-o".to_string(), format!("volname={name}"),
+            "-o".to_string(), "follow_symlinks".to_string(),
+            "-o".to_string(), "allow_other".to_string(),
+        ]
+    } else {
+        vec![]
+    };
+
+    let (ok, _, _) = if mount_point.starts_with("/Volumes") {
+        let args: Vec<&str> = sshfs_args.iter().map(|s| s.as_str()).collect();
+        common::run_cmd("sudo", &args)
+    } else {
+        common::run_cmd("sshfs", &[
+            &format!("{user}@{host}:{remote_path}"),
+            mount_point,
+            "-o", "reconnect",
+            "-o", &format!("volname={name}"),
+            "-o", "follow_symlinks",
+        ])
+    };
+
+    if ok {
+        println!("[mount] '{name}' 마운트 완료");
+    }
+}
+
+/// SMB 마운트 (Proxmox SSH 터널 경유)
+/// WireGuard VPN 환경에서 macOS SMB 클라이언트가 직접 연결이 안 되므로
+/// Proxmox를 통한 SSH 포트포워딩으로 우회
+fn mount_smb_via_tunnel(host: &str, user: &str, remote_path: &str, mount_point: &str, name: &str) {
+    let cfg = Config::load();
+
+    let password = resolve_password(host);
+    if password.is_empty() {
+        eprintln!("[mount] SMB 비밀번호가 설정되지 않았습니다.");
+        eprintln!("  .env 파일에 SYNOLOGY_PASSWORD 또는 MOUNT_PASSWORD를 설정하세요.");
+        std::process::exit(1);
+    }
+
+    // 사용할 로컬 포트 할당 (호스트 IP 기반으로 고정 포트)
+    let local_port = tunnel_port_for(host);
+
+    // 기존 터널이 있는지 확인
+    let (_, ps) = common::run_cmd_quiet("pgrep", &["-f", &format!("ssh.*-L.*{local_port}.*{host}")]);
+    let tunnel_exists = !ps.trim().is_empty();
+
+    if !tunnel_exists {
+        println!("[mount] SSH 터널 생성: localhost:{local_port} -> {host}:445 (via {})", cfg.proxmox.host);
+        let tunnel_ok = Command::new("sudo")
+            .args(["ssh", "-f", "-N",
+                "-o", "StrictHostKeyChecking=accept-new",
+                "-L", &format!("{local_port}:{host}:445"),
+                &format!("{}@{}", cfg.proxmox.user, cfg.proxmox.host)])
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+
+        if !tunnel_ok {
+            eprintln!("[mount] SSH 터널 생성 실패");
+            std::process::exit(1);
+        }
+
+        // 터널 안정화 대기
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    } else {
+        println!("[mount] SSH 터널 이미 존재: localhost:{local_port}");
+    }
+
+    ensure_mount_point(mount_point);
+
+    let share = remote_path.trim_start_matches('/');
+    println!("[mount] smb://{user}@localhost:{local_port}/{share} -> {mount_point}");
+
+    // mount_smbfs에 포트 지정: -o port=PORT
+    let (ok, _, stderr) = common::run_cmd("mount_smbfs", &[
+        "-o", &format!("port={local_port}"),
+        &format!("//{user}:{password}@localhost/{share}"),
         mount_point,
-        "-o", "reconnect",
-        "-o", "volname=proxmox",
-        "-o", "follow_symlinks",
+    ]);
+
+    if ok {
+        println!("[mount] '{name}' 마운트 완료");
+    } else {
+        // mount_smbfs가 port 옵션을 안 받을 수 있음 — nsmb.conf로 대체
+        if stderr.contains("Unknown") || stderr.contains("option") {
+            println!("[mount] port 옵션 미지원, nsmb.conf 방식으로 재시도...");
+            mount_smb_nsmb(local_port, user, &password, share, mount_point, name);
+        }
+    }
+}
+
+fn mount_smb_nsmb(port: u16, user: &str, password: &str, share: &str, mount_point: &str, name: &str) {
+    // /etc/nsmb.conf에 localhost 포트 설정
+    let nsmb_content = format!(
+        "[default]\nport445=no_netbios\n\n[localhost]\nport={port}\naddr=127.0.0.1\n"
+    );
+    let _ = Command::new("sudo")
+        .args(["bash", "-c", &format!("echo '{}' > /etc/nsmb.conf", nsmb_content)])
+        .status();
+
+    let (ok, _, _) = common::run_cmd("mount_smbfs", &[
+        &format!("//{user}:{password}@localhost/{share}"),
+        mount_point,
     ]);
 
     if ok {
@@ -138,23 +253,58 @@ fn mount_sshfs(host: &str, user: &str, remote_path: &str, mount_point: &str, nam
     }
 }
 
-fn mount_smb(host: &str, user: &str, remote_path: &str, mount_point: &str, name: &str) {
-    let password = std::env::var("MOUNT_PASSWORD").unwrap_or_default();
-    if password.is_empty() {
-        eprintln!("[mount] MOUNT_PASSWORD가 설정되지 않았습니다. .env 파일을 확인하세요.");
-        std::process::exit(1);
+/// 호스트 IP를 기반으로 고정 터널 포트 할당
+/// 192.168.2.15 → 44515, 192.168.2.50 → 44550 등
+fn tunnel_port_for(host: &str) -> u16 {
+    let last_octet: u16 = host
+        .rsplit('.')
+        .next()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+    44500 + last_octet
+}
+
+fn kill_smb_tunnel(host: &str) {
+    let local_port = tunnel_port_for(host);
+    let _ = Command::new("sudo")
+        .args(["pkill", "-f", &format!("ssh.*-L.*{local_port}.*{host}")])
+        .status();
+}
+
+fn resolve_password(host: &str) -> String {
+    let cfg = Config::load();
+
+    // Synology 호스트면 SYNOLOGY_PASSWORD 우선
+    if host == cfg.synology.host {
+        let pw = std::env::var("SYNOLOGY_PASSWORD").unwrap_or_default();
+        if !pw.is_empty() {
+            return pw;
+        }
     }
 
-    let _ = Command::new("mkdir").args(["-p", mount_point]).output();
+    // TrueNAS 호스트면 TRUENAS_PASSWORD 우선
+    if host == cfg.truenas.host {
+        let pw = std::env::var("TRUENAS_PASSWORD").unwrap_or_default();
+        if !pw.is_empty() {
+            return pw;
+        }
+    }
 
-    let share = remote_path.trim_start_matches('/');
-    println!("[mount] smb://{user}@{host}/{share} -> {mount_point}");
-    let (ok, _, _) = common::run_cmd("mount_smbfs", &[
-        &format!("//{user}:{password}@{host}/{share}"),
-        mount_point,
-    ]);
+    // 폴백: MOUNT_PASSWORD
+    std::env::var("MOUNT_PASSWORD").unwrap_or_default()
+}
 
-    if ok {
-        println!("[mount] '{name}' 마운트 완료");
+fn ensure_mount_point(mount_point: &str) {
+    let path = std::path::Path::new(mount_point);
+    if !path.exists() {
+        if mount_point.starts_with("/Volumes") {
+            let _ = Command::new("sudo")
+                .args(["mkdir", "-p", mount_point])
+                .status();
+        } else {
+            let _ = Command::new("mkdir")
+                .args(["-p", mount_point])
+                .output();
+        }
     }
 }

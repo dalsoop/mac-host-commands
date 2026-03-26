@@ -8,6 +8,10 @@ pub struct Config {
     #[serde(default)]
     pub proxmox: ProxmoxConfig,
     #[serde(default)]
+    pub synology: NasConfig,
+    #[serde(default)]
+    pub truenas: NasConfig,
+    #[serde(default)]
     pub mount: MountConfig,
 }
 
@@ -38,6 +42,14 @@ fn default_proxmox_user() -> String {
     std::env::var("PROXMOX_USER").unwrap_or_else(|_| "root".to_string())
 }
 fn default_proxmox_port() -> u16 { 22 }
+
+#[derive(Deserialize, Default, Clone)]
+pub struct NasConfig {
+    #[serde(default)]
+    pub host: String,
+    #[serde(default)]
+    pub user: String,
+}
 
 #[derive(Deserialize, Default, Clone)]
 pub struct MountConfig {
@@ -136,7 +148,7 @@ method = "sshfs"
         println!("[.env] {}: {}", env_path.display(), if env_exists { "✓" } else { "✗" });
 
         if env_exists {
-            let env_vars = ["PROXMOX_HOST", "PROXMOX_USER", "MOUNT_USER", "MOUNT_PASSWORD"];
+            let env_vars = ["PROXMOX_HOST", "PROXMOX_USER", "MOUNT_USER", "MOUNT_PASSWORD", "SYNOLOGY_PASSWORD", "TRUENAS_PASSWORD"];
             for var in env_vars {
                 let val = std::env::var(var).unwrap_or_default();
                 let mark = if val.is_empty() { "✗" } else { "✓" };
@@ -158,6 +170,26 @@ method = "sshfs"
         println!("  host: {}", cfg.proxmox.host);
         println!("  user: {}", cfg.proxmox.user);
         println!("  port: {}", cfg.proxmox.port);
+
+        println!("\n[synology]");
+        if cfg.synology.host.is_empty() {
+            println!("  ✗ 미설정");
+        } else {
+            println!("  host: {}", cfg.synology.host);
+            println!("  user: {}", cfg.synology.user);
+            let pw = std::env::var("SYNOLOGY_PASSWORD").unwrap_or_default();
+            println!("  password: {}", if pw.is_empty() { "✗" } else { "✓ (설정됨)" });
+        }
+
+        println!("\n[truenas]");
+        if cfg.truenas.host.is_empty() {
+            println!("  ✗ 미설정");
+        } else {
+            println!("  host: {}", cfg.truenas.host);
+            println!("  user: {}", cfg.truenas.user);
+            let pw = std::env::var("TRUENAS_PASSWORD").unwrap_or_default();
+            println!("  password: {}", if pw.is_empty() { "✗" } else { "✓ (설정됨)" });
+        }
 
         println!("\n[mount]");
         println!("  base_path: {}", cfg.mount.base_path);
