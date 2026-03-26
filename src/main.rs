@@ -1,5 +1,6 @@
 mod common;
 mod config;
+mod files;
 mod github;
 mod mount;
 mod network;
@@ -63,6 +64,11 @@ enum Commands {
     Setup {
         #[command(subcommand)]
         cmd: SetupCmd,
+    },
+    /// 파일 자동 정리/분류
+    Files {
+        #[command(subcommand)]
+        cmd: FilesCmd,
     },
     /// GitHub CLI 설치 및 연동
     Github {
@@ -185,6 +191,26 @@ enum SetupCmd {
     InstallSshpass,
     /// macFUSE 커널 확장 로드
     LoadMacfuse,
+}
+
+// === FILES ===
+#[derive(Subcommand)]
+enum FilesCmd {
+    /// 파일 관리 상태 확인
+    Status,
+    /// Downloads 파일 자동 분류
+    Organize,
+    /// 임시 폴더 정리 (30일 이상 → 아카이브)
+    CleanupTemp,
+    /// 자동 정리 활성화 (매일 09:00)
+    SetupAuto,
+    /// 자동 정리 비활성화
+    DisableAuto,
+    /// 폴더 내 파일명 포맷 적용 (YYMMDD_설명.확장자)
+    Rename {
+        /// 대상 폴더
+        dir: String,
+    },
 }
 
 // === GITHUB ===
@@ -327,6 +353,15 @@ fn main() {
             SetupCmd::InstallSshfs => setup::install_sshfs(),
             SetupCmd::InstallSshpass => setup::install_sshpass(),
             SetupCmd::LoadMacfuse => setup::load_macfuse(),
+        },
+
+        Commands::Files { cmd } => match cmd {
+            FilesCmd::Status => files::status(),
+            FilesCmd::Organize => files::organize(),
+            FilesCmd::CleanupTemp => files::cleanup_temp(),
+            FilesCmd::SetupAuto => files::setup_auto(),
+            FilesCmd::DisableAuto => files::disable_auto(),
+            FilesCmd::Rename { dir } => files::rename_format(&dir),
         },
 
         Commands::Github { cmd } => match cmd {
