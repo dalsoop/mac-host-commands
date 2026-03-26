@@ -139,18 +139,18 @@ enum SshCmd {
 enum VeilCmd {
     /// VeilKey 상태 확인
     Status,
-    /// 전체 부트스트랩 (CLI + LocalVault + VaultCenter + 프로필)
+    /// 전체 부트스트랩 (CLI + LocalVault + env + 프로필 + 점검)
     Bootstrap,
     /// veilkey-cli 설치
     InstallCli,
     /// LocalVault 설치 + LaunchAgent 등록
     InstallLocalvault,
-    /// VaultCenter SSH 터널 연결
-    Connect,
-    /// VaultCenter SSH 터널 해제
-    Disconnect,
+    /// .veilkey/env 파일 설정 (URL 업데이트)
+    SetupEnv,
     /// 셸 프로필 설정 (~/.veilkey.sh)
     SetupProfile,
+    /// 연결 파이프라인 점검
+    Check,
     /// LocalVault 시작
     Start,
     /// LocalVault 중지
@@ -294,9 +294,9 @@ fn main() {
             VeilCmd::Bootstrap => veil::bootstrap(),
             VeilCmd::InstallCli => veil::install_cli(),
             VeilCmd::InstallLocalvault => veil::install_localvault(),
-            VeilCmd::Connect => veil::connect_vaultcenter(),
-            VeilCmd::Disconnect => veil::disconnect_vaultcenter(),
+            VeilCmd::SetupEnv => veil::setup_env(),
             VeilCmd::SetupProfile => veil::setup_profile(),
+            VeilCmd::Check => veil::check(),
             VeilCmd::Start => veil::localvault_start(),
             VeilCmd::Stop => veil::localvault_stop(),
         },
