@@ -166,17 +166,21 @@ ssh copy-key              # 키 복사
 ## 폴더 구조
 
 ```
-~/
-├── 시스템/       ← bin, dalcenter, 스케줄러, 로그
-├── 프로젝트/     ← 활성 코드 (projects.cue 관리)
-├── 업무/         ← 업무 문서
-├── 미디어/       ← 사진, 영상, 디자인
-├── 인프라/       ← Proxmox, Synology, WireGuard 설정
-├── 창작/         ← 소설, 게임, 영상
-├── 사업/         ← 비즈니스
-├── 아카이브/     ← 완료/보관
-├── 임시/         ← 자동 정리 (매일 09:00)
-└── Downloads/    ← 자동 분류
+~/문서/                              ← 이것만 보면 됨
+├── obsidian-vault/                  ← Obsidian (GitHub sync)
+├── 시스템/                          ← bin, dalcenter, 스케줄러, 로그
+├── 프로젝트/                        ← 활성 코드 (projects.cue 관리)
+├── 업무/                           ← 업무 문서
+├── 미디어/                         ← 사진, 스크린샷, 영상, 디자인, 음악
+├── 인프라/                         ← Proxmox, Synology, WireGuard 설정
+├── 창작/                           ← 소설, 게임, 영상, 음악
+├── 사업/                           ← 계약, 기획, 라노드, 마케팅
+├── 학습/                           ← (NAS에서 관리)
+├── 아카이브/                        ← 완료/보관
+├── 임시/                           ← 자동 정리 (매일 09:00)
+├── NAS-Synology → /Volumes/synology
+├── NAS-TrueNAS → /Volumes/truenas
+└── NAS-Proxmox → /Volumes/proxmox
 ```
 
 ## 인프라
@@ -193,5 +197,5 @@ Mac (10.87.40.6) ←WireGuard→ Proxmox (192.168.2.50)
 
 - `~/.mac-host-commands/config.toml` — 마운트 타겟, 서버 정보
 - `~/.mac-host-commands/.env` — 비밀번호, 토큰
-- `~/프로젝트/projects.cue` — 프로젝트 목록 (자동 갱신)
-- `~/프로젝트/worktree.cue` — worktree 규칙
+- `~/문서/프로젝트/projects.cue` — 프로젝트 목록 (자동 갱신)
+- `~/문서/프로젝트/worktree.cue` — worktree 규칙
