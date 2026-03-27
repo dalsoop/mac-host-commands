@@ -2,6 +2,7 @@ mod common;
 mod config;
 mod dal;
 mod files;
+mod init;
 mod github;
 mod mount;
 mod network;
@@ -26,6 +27,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// 새 Mac 초기 셋업 (폴더 + 도구 + 마운트 + 자동화 전부)
+    Init,
     /// 전체 도메인 상태 한 번에 확인
     Status,
     /// 설정 관리 (~/.mac-host-commands/)
@@ -398,6 +401,8 @@ fn main() {
     common::load_env();
 
     match cli.command {
+        Commands::Init => init::run(false),
+
         Commands::Status => {
             config::Config::status();
             println!("\n{}\n", "─".repeat(50));
