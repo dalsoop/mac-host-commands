@@ -4,8 +4,14 @@ use std::process::Command;
 use crate::common;
 
 fn vault_path() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/Users/jeonghan".to_string());
-    PathBuf::from(home).join("문서/옵시디언/vault")
+    match std::env::var("OBSIDIAN_VAULT") {
+        Ok(p) => PathBuf::from(p),
+        Err(_) => {
+            eprintln!("[obsidian] OBSIDIAN_VAULT 환경변수가 설정되지 않았습니다.");
+            eprintln!("  export OBSIDIAN_VAULT=/path/to/vault");
+            std::process::exit(1);
+        }
+    }
 }
 
 pub fn status() {

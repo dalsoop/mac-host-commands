@@ -47,7 +47,7 @@ pub const BIZ_DIR: &str = "문서/사업";
 pub const LEARN_DIR: &str = "문서/학습";
 pub const ARCHIVE_DIR: &str = "문서/아카이브";
 pub const TEMP_DIR: &str = "문서/임시";
-pub const VAULT_DIR: &str = "문서/옵시디언/vault";
+// VAULT_DIR은 환경변수 OBSIDIAN_VAULT로 설정
 
 // ─── LaunchAgent ───────────────────────────────────────
 
