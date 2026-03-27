@@ -91,12 +91,21 @@ pub fn setup_path() {
     let zprofile = format!("{h}/.zprofile");
     let mut content = fs::read_to_string(&zprofile).unwrap_or_default();
     let mut changed = false;
+    let wrong_path = "export PATH=\"$HOME/시스템/bin:$PATH\"";
+    let correct_path = "export PATH=\"$HOME/문서/시스템/bin:$PATH\"";
 
-    // ~/시스템/bin을 PATH에 추가
-    if !content.contains("문서/시스템/bin") {
-        content.push_str("\n# mac-host-commands: 시스템 바이너리\nexport PATH=\"$HOME/시스템/bin:$PATH\"\n");
+    // 잘못 기록된 예전 PATH를 교정
+    if content.contains(wrong_path) {
+        content = content.replace(wrong_path, correct_path);
         changed = true;
-        println!("[dal] PATH에 ~/시스템/bin 추가");
+        println!("[dal] PATH 오타 교정: ~/시스템/bin → ~/문서/시스템/bin");
+    }
+
+    // ~/문서/시스템/bin을 PATH에 추가
+    if !content.contains("문서/시스템/bin") {
+        content.push_str(&format!("\n# mac-host-commands: 시스템 바이너리\n{correct_path}\n"));
+        changed = true;
+        println!("[dal] PATH에 ~/문서/시스템/bin 추가");
     } else {
         println!("[dal] PATH 이미 등록됨");
     }
