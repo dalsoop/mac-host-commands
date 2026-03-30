@@ -4,7 +4,8 @@ use std::fs;
 
 use crate::common;
 
-use crate::constants::{DALCENTER_HOST, DALCENTER_DEFAULT_PORT, DALCENTER_PORTS};
+use crate::constants::{DALCENTER_HOST, DALCENTER_DEFAULT_PORT, DALCENTER_PORTS,
+                       PROXMOX_HOME_HOST, DALCENTER_HOME_HOST, DALCENTER_HOME_PORT};
 
 fn home() -> String {
     std::env::var("HOME").unwrap_or_else(|_| "/Users/jeonghan".to_string())
@@ -127,9 +128,10 @@ pub fn setup_path() {
 }
 
 /// dalcenter task 완료 대기 + macOS 알림
-pub fn watch(team: &str, interval_secs: u64) {
-    let url = resolve_team_url(team);
-    println!("[dal] watching {url} ({}초 간격)", interval_secs);
+pub fn watch(team: &str, interval_secs: u64, host: &Option<String>) {
+    let url = resolve_team_url(team, host);
+    let pve = resolve_proxmox_host(host);
+    println!("[dal] watching {url} ({}초 간격, proxmox={pve})", interval_secs);
 
     loop {
         let output = Command::new("curl")
@@ -158,7 +160,7 @@ pub fn watch(team: &str, interval_secs: u64) {
                     // PR 목록 출력
                     let pr_out = Command::new("ssh")
                         .args([
-                            &format!("{}@{}", crate::constants::PROXMOX_USER, crate::constants::PROXMOX_HOST),
+                            &format!("{}@{}", crate::constants::PROXMOX_USER, pve),
                             &format!("pct exec 105 -- bash -c 'cd /root/project && gh pr list --limit 10 2>/dev/null'"),
                         ])
                         .output();
@@ -181,8 +183,9 @@ pub fn watch(team: &str, interval_secs: u64) {
 }
 
 /// dalcenter에 task 전송
-pub fn task(team: &str, dal_name: &str, prompt: &str, async_mode: bool) {
-    let url = resolve_team_url(team);
+pub fn task(team: &str, dal_name: &str, prompt: &str, async_mode: bool, host: &Option<String>) {
+    let url = resolve_team_url(team, host);
+    let pve = resolve_proxmox_host(host);
     let async_flag = if async_mode { "--async" } else { "" };
 
     let ssh_cmd = format!(
@@ -190,7 +193,7 @@ pub fn task(team: &str, dal_name: &str, prompt: &str, async_mode: bool) {
     );
 
     let (ok, stdout, stderr) = common::run_cmd("ssh", &[
-        &format!("{}@{}", crate::constants::PROXMOX_USER, crate::constants::PROXMOX_HOST),
+        &format!("{}@{}", crate::constants::PROXMOX_USER, pve),
         &ssh_cmd,
     ]);
 
@@ -202,15 +205,16 @@ pub fn task(team: &str, dal_name: &str, prompt: &str, async_mode: bool) {
 }
 
 /// dalcenter tell (팀에 메시지 전송)
-pub fn tell(team: &str, message: &str) {
-    let url = resolve_team_url(team);
+pub fn tell(team: &str, message: &str, host: &Option<String>) {
+    let url = resolve_team_url(team, host);
+    let pve = resolve_proxmox_host(host);
 
     let ssh_cmd = format!(
         "pct exec 105 -- bash -c 'export PATH=/usr/local/go/bin:/usr/local/bin:$PATH DALCENTER_URL={url} && dalcenter tell {team} \"{message}\"'"
     );
 
     let (ok, stdout, stderr) = common::run_cmd("ssh", &[
-        &format!("{}@{}", crate::constants::PROXMOX_USER, crate::constants::PROXMOX_HOST),
+        &format!("{}@{}", crate::constants::PROXMOX_USER, pve),
         &ssh_cmd,
     ]);
 
@@ -222,26 +226,53 @@ pub fn tell(team: &str, message: &str) {
 }
 
 /// dalcenter task-list
-pub fn task_list(team: &str) {
-    let url = resolve_team_url(team);
+pub fn task_list(team: &str, host: &Option<String>) {
+    let url = resolve_team_url(team, host);
+    let pve = resolve_proxmox_host(host);
     let ssh_cmd = format!(
         "pct exec 105 -- bash -c 'export PATH=/usr/local/go/bin:/usr/local/bin:$PATH DALCENTER_URL={url} && dalcenter task-list'"
     );
 
     let (_, stdout, _) = common::run_cmd("ssh", &[
-        &format!("{}@{}", crate::constants::PROXMOX_USER, crate::constants::PROXMOX_HOST),
+        &format!("{}@{}", crate::constants::PROXMOX_USER, pve),
         &ssh_cmd,
     ]);
     println!("{stdout}");
 }
 
-fn resolve_team_url(team: &str) -> String {
-    for (name, _, port) in crate::constants::DALCENTER_PORTS {
+/// --host 또는 DALCENTER_HOST_OVERRIDE 환경변수로 호스트 전환 가능.
+/// "pve-home"이면 자택 Proxmox 상수를 사용.
+fn is_home(host: &Option<String>) -> bool {
+    if let Some(h) = host {
+        return h == "pve-home";
+    }
+    if let Ok(v) = std::env::var("DALCENTER_HOST_OVERRIDE") {
+        return v == "pve-home";
+    }
+    if let Ok(v) = std::env::var("PROXMOX_HOST") {
+        return v == "pve-home";
+    }
+    false
+}
+
+fn resolve_proxmox_host(host: &Option<String>) -> String {
+    if is_home(host) {
+        PROXMOX_HOME_HOST.to_string()
+    } else {
+        crate::constants::PROXMOX_HOST.to_string()
+    }
+}
+
+fn resolve_team_url(team: &str, host: &Option<String>) -> String {
+    if is_home(host) {
+        return format!("http://{}:{}", DALCENTER_HOME_HOST, DALCENTER_HOME_PORT);
+    }
+    for (name, _, port) in DALCENTER_PORTS {
         if *name == team {
-            return format!("http://{}:{port}", crate::constants::DALCENTER_HOST);
+            return format!("http://{}:{port}", DALCENTER_HOST);
         }
     }
-    format!("http://{}:{}", crate::constants::DALCENTER_HOST, crate::constants::DALCENTER_DEFAULT_PORT)
+    format!("http://{}:{}", DALCENTER_HOST, DALCENTER_DEFAULT_PORT)
 }
 
 pub fn build() {

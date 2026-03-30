@@ -5,6 +5,11 @@ pub const PROXMOX_HOST: &str = "192.168.2.50";
 pub const PROXMOX_USER: &str = "root";
 pub const PROXMOX_PORT: u16 = 22;
 
+// Proxmox (자택)
+pub const PROXMOX_HOME_HOST: &str = "192.168.0.50";
+pub const DALCENTER_HOME_HOST: &str = "192.168.0.105";
+pub const DALCENTER_HOME_PORT: u16 = 11190;
+
 // Synology
 pub const SYNOLOGY_HOST: &str = "192.168.2.15";
 pub const SYNOLOGY_USER: &str = "botnex";

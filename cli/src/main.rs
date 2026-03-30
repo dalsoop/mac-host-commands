@@ -312,6 +312,9 @@ enum DalCmd {
         /// 폴링 간격 (초, 기본: 30)
         #[arg(long, default_value = "30")]
         interval: u64,
+        /// Proxmox 호스트 ("pve-home" → 자택)
+        #[arg(long)]
+        host: Option<String>,
     },
     /// dal에게 task 전송
     Task {
@@ -325,12 +328,18 @@ enum DalCmd {
         /// 비동기 실행
         #[arg(long)]
         r#async: bool,
+        /// Proxmox 호스트 ("pve-home" → 자택)
+        #[arg(long)]
+        host: Option<String>,
     },
     /// task 목록 조회
     TaskList {
         /// 팀 이름
         #[arg(default_value = "dalcenter")]
         team: String,
+        /// Proxmox 호스트 ("pve-home" → 자택)
+        #[arg(long)]
+        host: Option<String>,
     },
     /// 팀에 메시지 전송 (dalcenter tell)
     Tell {
@@ -338,6 +347,9 @@ enum DalCmd {
         team: String,
         /// 메시지
         message: String,
+        /// Proxmox 호스트 ("pve-home" → 자택)
+        #[arg(long)]
+        host: Option<String>,
     },
 }
 
@@ -543,10 +555,10 @@ fn main() {
             DalCmd::Install => dal::install(),
             DalCmd::Build => dal::build(),
             DalCmd::SetupPath => dal::setup_path(),
-            DalCmd::Watch { team, interval } => dal::watch(&team, interval),
-            DalCmd::Task { dal: dal_name, prompt, team, r#async: async_mode } => dal::task(&team, &dal_name, &prompt, async_mode),
-            DalCmd::TaskList { team } => dal::task_list(&team),
-            DalCmd::Tell { team, message } => dal::tell(&team, &message),
+            DalCmd::Watch { team, interval, host } => dal::watch(&team, interval, &host),
+            DalCmd::Task { dal: dal_name, prompt, team, r#async: async_mode, host } => dal::task(&team, &dal_name, &prompt, async_mode, &host),
+            DalCmd::TaskList { team, host } => dal::task_list(&team, &host),
+            DalCmd::Tell { team, message, host } => dal::tell(&team, &message, &host),
         },
 
         Commands::Files { cmd } => match cmd {
