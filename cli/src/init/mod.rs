@@ -41,7 +41,7 @@ const FOLDERS: &[(&str, &str)] = &[
     ("문서/임시", "미분류, 자동 정리"),
 ];
 
-pub fn run(skip_interactive: bool) {
+pub fn run(_skip_interactive: bool) {
     let h = home();
 
     println!("=== mac-host-commands 초기 셋업 ===\n");

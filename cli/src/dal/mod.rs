@@ -4,7 +4,7 @@ use std::fs;
 
 use crate::common;
 
-use crate::constants::{DALCENTER_HOST, DALCENTER_DEFAULT_PORT, DALCENTER_PORTS};
+use crate::constants::{DALCENTER_DEFAULT_PORT, DALCENTER_HOST};
 
 fn home() -> String {
     std::env::var("HOME").unwrap_or_else(|_| "/Users/jeonghan".to_string())
