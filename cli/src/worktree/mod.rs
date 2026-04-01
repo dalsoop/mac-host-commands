@@ -1,5 +1,4 @@
 use std::path::Path;
-use std::process::Command;
 use std::fs;
 
 use crate::common;
@@ -55,7 +54,7 @@ pub fn status() {
     println!("  {:<35} {:<10} {}", "폴더", "타입", "브랜치");
     println!("  {}", "─".repeat(60));
 
-    for (folder, project, btype, bname) in &worktrees {
+    for (folder, _project, btype, _bname) in &worktrees {
         let path = format!("{proj_dir}/{folder}");
         let branch = git_current_branch(&path);
 
@@ -112,7 +111,7 @@ pub fn add(project: &str, btype: &str, name: &str) {
     println!("  브랜치: {branch}");
 
     // git worktree add
-    let (ok, _, stderr) = common::run_cmd("git", &[
+    let (ok, _, _stderr) = common::run_cmd("git", &[
         "-C", &main_path, "worktree", "add", "-b", &branch, &wt_path,
     ]);
 
