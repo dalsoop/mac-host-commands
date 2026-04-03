@@ -37,17 +37,11 @@ pub fn status() {
         if smb_ok { "✓ 포트 열림" } else { "✗ 포트 닫힘" });
 }
 
-/// VPN(WireGuard) 연결 여부 반환
-/// utun 인터페이스 + Proxmox ping 두 가지로 판단
+/// Proxmox에 도달 가능한지 확인 (VPN 또는 LAN 모두 포함)
+/// WireGuard 여부와 무관하게 Proxmox에 ping이 담기면 마운트 허용
 pub fn is_vpn_connected() -> bool {
-    let (_, ifconfig) = common::run_cmd_quiet("/sbin/ifconfig", &[]);
-    let has_utun = ifconfig.contains("utun");
-    if !has_utun {
-        return false;
-    }
-    // utun이 있어도 Proxmox에 실제 도달 되는지 확인
     let cfg = Config::load();
-    let (ping_ok, _) = common::run_cmd_quiet("ping", &["-c", "1", "-W", "2", &cfg.proxmox.host]);
+    let (ping_ok, _) = common::run_cmd_quiet("/sbin/ping", &["-c", "1", "-W", "2", &cfg.proxmox.host]);
     ping_ok
 }
 
