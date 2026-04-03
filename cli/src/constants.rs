@@ -54,11 +54,23 @@ pub const ARCHIVE_DIR: &str = "문서/아카이브";
 pub const TEMP_DIR: &str = "문서/임시";
 // VAULT_DIR은 환경변수 OBSIDIAN_VAULT로 설정
 
+// ─── OpenClaw ─────────────────────────────────────────
+
+pub const OPENCLAW_DOMAIN: &str = "openclaw.internal.kr";
+pub const OPENCLAW_SUBDOMAIN: &str = "openclaw";
+pub const OPENCLAW_ZONE_NAME: &str = "internal.kr";
+pub const OPENCLAW_TUNNEL_NAME: &str = "openclaw-mac";
+pub const OPENCLAW_GATEWAY_PORT: u16 = 18789;
+pub const CF_EMAIL: &str = "urit245@gmail.com";
+
 // ─── LaunchAgent ───────────────────────────────────────
 
 pub const PLIST_FILE_ORGANIZER: &str = "com.mac-host.file-organizer.plist";
 pub const PLIST_SD_BACKUP: &str = "com.mac-host.sd-backup.plist";
 pub const PLIST_PROJECTS_SYNC: &str = "com.mac-host.projects-sync.plist";
+pub const PLIST_OPENCLAW_GATEWAY: &str = "ai.openclaw.gateway.plist";
+pub const PLIST_CLOUDFLARED: &str = "com.cloudflare.cloudflared.plist";
+pub const PLIST_OPENCLAW_SYNC: &str = "com.mac-host.openclaw-sync.plist";
 
 // ─── Synology 경로 매핑 ────────────────────────────────
 
