@@ -9,13 +9,25 @@ Mac 호스트 관리 CLI — Proxmox, Synology, TrueNAS 인프라 연동 및 파
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# 설치
+# GitHub에서 바로 설치
+cargo install --git https://github.com/dalsoop/mac-host-commands --locked
+
+# 또는 로컬 소스에서 설치
 git clone https://github.com/dalsoop/mac-host-commands.git
 cd mac-host-commands/cli
-cargo install --path .
+cargo install --path . --locked
+```
 
-# 전체 셋업 (이것 하나로 끝)
+## 첫 실행
+
+```bash
+# 전체 셋업 (권장)
 mac-host-commands init
+
+# 또는 단계별 시작
+mac-host-commands config init
+mac-host-commands setup bootstrap
+mac-host-commands status
 ```
 
 ## 환경변수
