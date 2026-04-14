@@ -1,9 +1,8 @@
 use mac_host_core::{
     common, config, cron, dal, files, github, init, keyboard,
-    mount, network, obsidian, proxmox, setup, ssh, synology,
+    mount, network, obsidian, openclaw, proxmox, setup, ssh, synology,
     veil, worktree, workspace,
 };
-
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
@@ -106,6 +105,11 @@ enum Commands {
         #[command(subcommand)]
         cmd: ObsidianCmd,
     },
+    /// OpenClaw AI 어시스턴트 (설치/삭제/터널)
+    Openclaw {
+        #[command(subcommand)]
+        cmd: OpenclawCmd,
+    },
 }
 
 // === CONFIG ===
@@ -136,6 +140,8 @@ enum MountCmd {
     },
     /// 전체 타겟 언마운트
     DownAll,
+    /// 끊긴 마운트 재연결
+    Reconnect,
 }
 
 // === NETWORK ===
@@ -274,6 +280,23 @@ enum WorkspaceCmd {
     InstallTools,
     /// 셸 환경 설정 (p10k, zsh 플러그인)
     SetupShell,
+    /// Codex/Claude/OpenCode 기반 AI 작업 도구 상태 확인
+    AiStatus,
+    /// Codex/OMX/OpenCode 로컬 AI 작업 환경 정리
+    AiSetup,
+    /// OpenCode 설정/캐시 초기화 후 oh-my-openagent 재설치
+    AiReinstallOpencode,
+    /// AI 공급자 API 키를 mac-host-commands 환경파일에 저장
+    AiSetProviderKeys {
+        /// Google API 키
+        #[arg(long)]
+        google_api_key: Option<String>,
+        /// MiniMax API 키
+        #[arg(long)]
+        minimax_api_key: Option<String>,
+    },
+    /// 권장 설정으로 oh-my-codex 실행
+    AiStartOmx,
 }
 
 // === SETUP ===
@@ -475,6 +498,48 @@ enum ObsidianCmd {
     PluginList,
 }
 
+// === OPENCLAW ===
+#[derive(Subcommand)]
+enum OpenclawCmd {
+    /// OpenClaw 상태 확인
+    Status,
+    /// 전체 설치 (CLI + 터널 + DNS + 서비스)
+    Install {
+        /// 텔레그램 봇 토큰 (BotFather에서 발급)
+        #[arg(long)]
+        telegram_token: Option<String>,
+    },
+    /// 전체 삭제 (CLI + 터널 + DNS + 서비스 + 데이터)
+    Uninstall,
+    /// 게이트웨이 + 터널 시작
+    Start,
+    /// 게이트웨이 + 터널 중지
+    Stop,
+    /// Claude Code + Codex 인증 → OpenClaw 동기화 (Keychain 추출)
+    SyncAuth,
+    /// 인증 자동 동기화 활성화 (30분마다)
+    SyncAuthAuto,
+    /// 인증 자동 동기화 비활성화
+    SyncAuthDisable,
+    /// 텔레그램 봇 연동
+    Telegram {
+        /// 봇 토큰 (BotFather에서 발급)
+        #[arg(long)]
+        token: String,
+    },
+    /// 텔레그램 페어링 승인
+    TelegramApprove {
+        /// 페어링 코드
+        code: String,
+    },
+    /// exec 승인 설정 - 모든 명령 자동 승인 (full)
+    ExecApprove,
+    /// exec 승인 설정 - 필요 시마다 확인 (ask)
+    ExecAsk,
+    /// exec 현재 설정 확인
+    ExecStatus,
+}
+
 // === PROXMOX ===
 #[derive(Subcommand)]
 enum ProxmoxCmd {
@@ -534,6 +599,7 @@ fn main() {
             MountCmd::UpAll => mount::mount_all(),
             MountCmd::Down { name } => mount::unmount(&name),
             MountCmd::DownAll => mount::unmount_all(),
+            MountCmd::Reconnect => mount::reconnect_all(),
         },
 
         Commands::Network { cmd } => match cmd {
@@ -583,6 +649,16 @@ fn main() {
             WorkspaceCmd::InstallTmux => workspace::install_tmux(),
             WorkspaceCmd::InstallTools => workspace::install_tools(),
             WorkspaceCmd::SetupShell => workspace::setup_shell(),
+            WorkspaceCmd::AiStatus => workspace::ai_status(),
+            WorkspaceCmd::AiSetup => workspace::ai_setup(),
+            WorkspaceCmd::AiReinstallOpencode => workspace::ai_reinstall_opencode(),
+            WorkspaceCmd::AiSetProviderKeys { google_api_key, minimax_api_key } => {
+                workspace::ai_set_provider_keys(
+                    google_api_key.as_deref(),
+                    minimax_api_key.as_deref(),
+                )
+            }
+            WorkspaceCmd::AiStartOmx => workspace::ai_start_omx(),
         },
 
         Commands::Setup { cmd } => match cmd {
@@ -641,6 +717,22 @@ fn main() {
             GithubCmd::SetupGit { name, email } => github::setup_git(&name, &email),
             GithubCmd::SetupSsh => github::setup_ssh(),
             GithubCmd::Repos => github::repos(),
+        },
+
+        Commands::Openclaw { cmd } => match cmd {
+            OpenclawCmd::Status => openclaw::status(),
+            OpenclawCmd::Install { telegram_token } => openclaw::install(telegram_token.as_deref()),
+            OpenclawCmd::Uninstall => openclaw::uninstall(),
+            OpenclawCmd::Start => openclaw::start(),
+            OpenclawCmd::Stop => openclaw::stop(),
+            OpenclawCmd::SyncAuth => openclaw::sync_auth(),
+            OpenclawCmd::SyncAuthAuto => openclaw::sync_auth_auto(),
+            OpenclawCmd::SyncAuthDisable => openclaw::sync_auth_disable(),
+            OpenclawCmd::Telegram { token } => openclaw::telegram(&token),
+            OpenclawCmd::TelegramApprove { code } => openclaw::telegram_approve(&code),
+            OpenclawCmd::ExecApprove => openclaw::exec_approve(),
+            OpenclawCmd::ExecAsk => openclaw::exec_ask(),
+            OpenclawCmd::ExecStatus => openclaw::exec_status(),
         },
 
         Commands::Obsidian { cmd } => match cmd {

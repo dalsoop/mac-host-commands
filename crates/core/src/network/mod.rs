@@ -37,6 +37,14 @@ pub fn status() {
         if smb_ok { "✓ 포트 열림" } else { "✗ 포트 닫힘" });
 }
 
+/// Proxmox에 도달 가능한지 확인 (VPN 또는 LAN 모두 포함)
+/// WireGuard 여부와 무관하게 Proxmox에 ping이 담기면 마운트 허용
+pub fn is_vpn_connected() -> bool {
+    let cfg = Config::load();
+    let (ping_ok, _) = common::run_cmd_quiet("/sbin/ping", &["-c", "1", "-W", "2", &cfg.proxmox.host]);
+    ping_ok
+}
+
 pub fn check() {
     let cfg = Config::load();
 
