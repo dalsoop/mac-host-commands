@@ -3,3 +3,4 @@ cli/target/
 *.swp
 *.swo
 .DS_Store
+/target/
